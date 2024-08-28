@@ -2,6 +2,7 @@ from exo import DEBUG
 from dataclasses import dataclass, asdict
 import subprocess
 import psutil
+from tinygrad import Device
 
 TFLOPS = 1.00
 
@@ -91,6 +92,12 @@ CHIP_FLOPS = {
   "NVIDIA GEFORCE RTX 2080": DeviceFlops(fp32=10.07*TFLOPS, fp16=20.14*TFLOPS, int8=40.28*TFLOPS),
   "NVIDIA GEFORCE RTX 2080 SUPER": DeviceFlops(fp32=11.15*TFLOPS, fp16=22.30*TFLOPS, int8=44.60*TFLOPS),
   "NVIDIA TITAN RTX": DeviceFlops(fp32=16.31*TFLOPS, fp16=32.62*TFLOPS, int8=65.24*TFLOPS),
+  # GTX series
+  "NVIDIA GEFORCE GTX 1060 6GB": DeviceFlops(fp32=3.0*TFLOPS, fp16=6.0*TFLOPS, int8=12.0*TFLOPS),
+  "NVIDIA GEFORCE GTX 1070": DeviceFlops(fp32=4.0*TFLOPS, fp16=8.0*TFLOPS, int8=16.0*TFLOPS),
+  "NVIDIA GEFORCE GTX 1070 Ti": DeviceFlops(fp32=4.5*TFLOPS, fp16=9.0*TFLOPS, int8=18.0*TFLOPS),
+  "NVIDIA GEFORCE GTX 1080": DeviceFlops(fp32=5.0*TFLOPS, fp16=10.0*TFLOPS, int8=20.0*TFLOPS),
+  "NVIDIA GEFORCE GTX 1080 Ti": DeviceFlops(fp32=6.0*TFLOPS, fp16=12.0*TFLOPS, int8=24.0*TFLOPS),
   # QUATRO RTX Ampere series
   "NVIDIA QUATRO RTX A2000": DeviceFlops(fp32=7.99*TFLOPS, fp16=7.99*TFLOPS, int8=31.91*TFLOPS),
   "NVIDIA QUATRO RTX A4000": DeviceFlops(fp32=19.17*TFLOPS, fp16=19.17*TFLOPS, int8=76.68*TFLOPS),
@@ -137,6 +144,8 @@ def device_capabilities() -> DeviceCapabilities:
     return mac_device_capabilities()
   elif psutil.LINUX:
     return linux_device_capabilities()
+  elif psutil.WINDOWS:
+    return windows_device_capabilities()
   else:
     return DeviceCapabilities(
       model="Unknown Device",
@@ -202,3 +211,25 @@ def linux_device_capabilities() -> DeviceCapabilities:
       memory=psutil.virtual_memory().total // 2**20,
       flops=DeviceFlops(fp32=0, fp16=0, int8=0),
     )
+
+
+def windows_device_capabilities() -> DeviceCapabilities:
+  import wmi
+
+  c = wmi.WMI()
+  system = c.Win32_ComputerSystem()[0]
+  os = c.Win32_OperatingSystem()[0]
+  gpu = c.Win32_VideoController()[0]
+
+  model = f"{system.Manufacturer} {system.Model}"
+  chip = gpu.Name.upper()
+  memory = int(os.TotalVisibleMemorySize) // 1024  # 轉換為MB
+
+  print(f"{model=} {chip=} {memory=}")
+
+  return DeviceCapabilities(
+    model=model,
+    chip=chip,
+    memory=memory,
+    flops=CHIP_FLOPS.get(chip, DeviceFlops(fp32=0, fp16=0, int8=0)),
+  )

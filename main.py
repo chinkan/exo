@@ -5,6 +5,7 @@ import json
 import time
 import traceback
 import uuid
+import sys
 from exo.orchestration.standard_node import StandardNode
 from exo.networking.grpc.grpc_server import GRPCServer
 from exo.networking.grpc.grpc_discovery import GRPCDiscovery
@@ -166,8 +167,9 @@ async def main():
   def handle_exit():
     asyncio.ensure_future(shutdown(signal.SIGTERM, loop))
 
-  for s in [signal.SIGINT, signal.SIGTERM]:
-    loop.add_signal_handler(s, handle_exit)
+  if sys.platform != "win32":
+    for s in [signal.SIGINT, signal.SIGTERM]:
+      loop.add_signal_handler(s, handle_exit)
 
   await node.start(wait_for_peers=args.wait_for_peers)
 
